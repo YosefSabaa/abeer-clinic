@@ -47,8 +47,6 @@ export default function AdminDashboardPage() {
     next_visit: '',
   })
 
-  const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN || '1234'
-
   const showNotification = (text, type = 'success') => {
     setToast({ text, type })
     setTimeout(() => setToast(null), 3500)
@@ -66,14 +64,32 @@ export default function AdminDashboardPage() {
   }
 
   useEffect(() => {
-    const savedLocale = localStorage.getItem('locale')
-    if (savedLocale === 'ar' || savedLocale === 'en') setLocale(savedLocale)
+    const initialize = async () => {
+      const savedLocale = localStorage.getItem('locale')
 
-    if (sessionStorage.getItem('admin_auth') === 'true') {
-      setIsAuthenticated(true)
-      loadDashboard()
+      if (savedLocale === 'ar' || savedLocale === 'en') {
+        setLocale(savedLocale)
+      }
+
+      try {
+        const response = await fetch('/api/admin/session', {
+          cache: 'no-store',
+        })
+
+        const result = await response.json()
+
+        if (result.authenticated) {
+          setIsAuthenticated(true)
+          await loadDashboard()
+        }
+      } catch {
+        setIsAuthenticated(false)
+      }
+
+      setMounted(true)
     }
-    setMounted(true)
+
+    initialize()
   }, [])
 
   useEffect(() => {
@@ -83,15 +99,32 @@ export default function AdminDashboardPage() {
     document.documentElement.dir = locale === 'ar' ? 'rtl' : 'ltr'
   }, [locale, mounted])
 
-  const handlePinSubmit = (e) => {
+  const handlePinSubmit = async (e) => {
     e.preventDefault()
-    if (pinInput === ADMIN_PIN) {
-      sessionStorage.setItem('admin_auth', 'true')
+    setPinError('')
+
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pin: pinInput,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'رمز الدخول غير صحيح')
+      }
+
       setIsAuthenticated(true)
-      setPinError('')
-      loadDashboard()
-    } else {
-      setPinError('رمز الدخول غير صحيح')
+      setPinInput('')
+      await loadDashboard()
+    } catch (error) {
+      setPinError(error.message || 'تعذر تسجيل الدخول')
     }
   }
 

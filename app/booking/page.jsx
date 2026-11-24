@@ -82,6 +82,7 @@ export default function BookingPage() {
         maritalStatus: form.maritalStatus,
         age: form.age,
         ageUnit: form.ageUnit,
+        visitType: selectedSlot.type,
       })
 
       if (result.success) {
