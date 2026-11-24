@@ -89,7 +89,15 @@ export default function BookingPage() {
         localStorage.setItem('patient_phone', cleanPhone)
         localStorage.setItem('patient_name', form.name.trim())
 
-        setMessage({ type: 'success', text: result.message })
+        const whatsappNote =
+          result.whatsappNotification === 'sent'
+            ? ' وتم إرسال تفاصيل الموعد عبر واتساب.'
+            : ''
+
+        setMessage({
+          type: 'success',
+          text: `${result.message}${whatsappNote}`,
+        })
         const updatedSlots = await getAvailableSlots(dateStr)
         setSlots(updatedSlots)
         setSelectedSlot(null)
