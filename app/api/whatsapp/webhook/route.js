@@ -1,4 +1,3 @@
-
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
@@ -51,6 +50,7 @@ function getMessageContent(message) {
   }
 }
 
+// التحقق من Webhook عند ربطه مع Meta
 export async function GET(request) {
   const url = new URL(request.url)
 
@@ -120,15 +120,41 @@ export async function POST(request) {
 
         // تحديث حالات الرسائل الصادرة
         for (const status of value.statuses || []) {
-          await supabaseAdmin
+          const firstError = status.errors?.[0] || null
+
+          const statusAt = status.timestamp
+            ? new Date(Number(status.timestamp) * 1000).toISOString()
+            : new Date().toISOString()
+
+          const updateData = {
+            status: status.status,
+            status_at: statusAt,
+            error_code: firstError?.code
+              ? String(firstError.code)
+              : null,
+            error_title: firstError?.title || null,
+            error_message: firstError?.message || null,
+            error_details: firstError?.error_data?.details || null,
+            raw_status: status,
+          }
+
+          const { error } = await supabaseAdmin
             .from('whatsapp_messages')
-            .update({ status: status.status })
+            .update(updateData)
             .eq('wa_message_id', status.id)
+
+          if (error) {
+            console.error('WhatsApp status update error:', {
+              messageId: status.id,
+              error,
+            })
+          }
         }
 
         // استقبال الرسائل الجديدة
         for (const message of value.messages || []) {
           const phone = message.from
+
           if (!phone) continue
 
           const content = getMessageContent(message)
@@ -137,8 +163,8 @@ export async function POST(request) {
             (item) => item.wa_id === phone
           )
 
-          const patientName =
-            contact?.profile?.name || null
+          const patientName = contact?.profile?.name || null
+          const now = new Date().toISOString()
 
           const { data: conversation, error: conversationError } =
             await supabaseAdmin
@@ -148,9 +174,9 @@ export async function POST(request) {
                   phone,
                   patient_name: patientName,
                   last_message: content,
-                  last_message_at: new Date().toISOString(),
-                  last_inbound_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
+                  last_message_at: now,
+                  last_inbound_at: now,
+                  updated_at: now,
                 },
                 { onConflict: 'phone' }
               )
@@ -174,6 +200,7 @@ export async function POST(request) {
               message_type: message.type || 'unknown',
               content,
               status: 'received',
+              status_at: now,
             })
 
           // منع احتساب الرسالة مرتين عند إعادة إرسال Webhook

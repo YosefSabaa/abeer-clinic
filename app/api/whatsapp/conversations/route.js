@@ -1,4 +1,3 @@
-
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/whatsapp-auth'
 
@@ -24,13 +23,17 @@ export async function GET(request) {
       .limit(200)
 
     if (error) {
+      console.error('Load messages error:', error)
+
       return Response.json(
         { error: error.message },
         { status: 500 }
       )
     }
 
-    return Response.json({ messages: data || [] })
+    return Response.json({
+      messages: data || [],
+    })
   }
 
   const { data, error } = await supabaseAdmin
@@ -40,6 +43,8 @@ export async function GET(request) {
     .limit(100)
 
   if (error) {
+    console.error('Load conversations error:', error)
+
     return Response.json(
       { error: error.message },
       { status: 500 }

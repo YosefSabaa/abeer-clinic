@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { t } from '@/lib/i18n'
+import Link from 'next/link'
 
 export default function Footer({ locale }) {
   const [year, setYear] = useState('')
@@ -14,6 +15,12 @@ export default function Footer({ locale }) {
       <p className="text-xs text-gray-500">
         © {year} {t(locale, 'footer')} — طبيبي
       </p>
+      <Link
+        href="/privacy-policy"
+        className="text-pink-300 hover:underline text-xs"
+      >
+        سياسة الخصوصية
+      </Link>
     </footer>
   )
 }

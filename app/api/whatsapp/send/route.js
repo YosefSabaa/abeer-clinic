@@ -1,4 +1,3 @@
-
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { requireAdmin } from '@/lib/whatsapp-auth'
 
@@ -61,6 +60,13 @@ export async function POST(request) {
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
     const token = process.env.WHATSAPP_ACCESS_TOKEN
 
+    if (!version || !phoneNumberId || !token) {
+      return Response.json(
+        { error: 'إعدادات WhatsApp API غير مكتملة في متغيرات البيئة.' },
+        { status: 500 }
+      )
+    }
+
     const response = await fetch(
       `https://graph.facebook.com/${version}/${phoneNumberId}/messages`,
       {
@@ -89,8 +95,10 @@ export async function POST(request) {
 
       return Response.json(
         {
-          error:
-            result.error?.message || 'فشل إرسال الرسالة',
+          success: false,
+          error: result.error?.message || 'فشل إرسال الرسالة',
+          errorCode: result.error?.code || null,
+          errorDetails: result.error?.error_data?.details || null,
         },
         { status: 502 }
       )
@@ -98,39 +106,77 @@ export async function POST(request) {
 
     const waMessageId = result.messages?.[0]?.id
 
+    if (!waMessageId) {
+      console.error('WhatsApp response has no message ID:', result)
+
+      return Response.json(
+        {
+          success: false,
+          error: 'استجاب WhatsApp دون إرجاع رقم الرسالة. لم نتمكن من تأكيد تسجيلها.',
+        },
+        { status: 502 }
+      )
+    }
+
+    const now = new Date().toISOString()
+
+    // قبول Meta للطلب لا يعني أن الرسالة وصلت للمستلم.
     const { error: insertError } = await supabaseAdmin
       .from('whatsapp_messages')
       .insert({
         conversation_id: conversationId,
-        wa_message_id: waMessageId || null,
+        wa_message_id: waMessageId,
         direction: 'outgoing',
         message_type: 'text',
         content: text,
-        status: 'sent',
+        status: 'accepted',
+        status_at: now,
       })
 
     if (insertError) {
       console.error('Outgoing message save error:', insertError)
+
+      return Response.json(
+        {
+          success: false,
+          error: 'قبل WhatsApp الطلب، لكن تعذر حفظ الرسالة في قاعدة البيانات.',
+          messageId: waMessageId,
+          databaseError: insertError.message,
+        },
+        { status: 500 }
+      )
     }
 
-    await supabaseAdmin
+    const { error: conversationUpdateError } = await supabaseAdmin
       .from('whatsapp_conversations')
       .update({
         last_message: text,
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        last_message_at: now,
+        updated_at: now,
       })
       .eq('id', conversationId)
+
+    if (conversationUpdateError) {
+      console.error(
+        'Conversation update error:',
+        conversationUpdateError
+      )
+    }
 
     return Response.json({
       success: true,
       messageId: waMessageId,
+      status: 'accepted',
+      message: 'قبل WhatsApp طلب الإرسال. ننتظر تأكيد التسليم من WhatsApp.',
     })
   } catch (error) {
     console.error('Send message error:', error)
 
     return Response.json(
-      { error: 'حدث خطأ أثناء إرسال الرسالة' },
+      {
+        success: false,
+        error: error.message || 'حدث خطأ أثناء إرسال الرسالة',
+      },
       { status: 500 }
     )
   }

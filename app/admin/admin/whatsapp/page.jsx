@@ -1,113 +1,256 @@
+'use client'
 
-'use client';
+import { useCallback, useEffect, useState } from 'react'
 
-import { useCallback, useEffect, useState } from 'react';
+function getMessageStatus(status) {
+  const statuses = {
+    accepted: {
+      label: 'تم قبول الطلب من Meta — التسليم غير مؤكد',
+      color: 'text-yellow-300 bg-yellow-500/10 border-yellow-500/20',
+      icon: '◷',
+    },
+    sent: {
+      label: 'تم إرسال الطلب — ننتظر تأكيد التسليم',
+      color: 'text-yellow-300 bg-yellow-500/10 border-yellow-500/20',
+      icon: '✓',
+    },
+    delivered: {
+      label: 'تم التسليم إلى المستلم',
+      color: 'text-green-300 bg-green-500/10 border-green-500/20',
+      icon: '✓✓',
+    },
+    read: {
+      label: 'تمت قراءة الرسالة',
+      color: 'text-blue-300 bg-blue-500/10 border-blue-500/20',
+      icon: '✓✓',
+    },
+    failed: {
+      label: 'فشل إرسال الرسالة',
+      color: 'text-red-300 bg-red-500/10 border-red-500/20',
+      icon: '!',
+    },
+    pending: {
+      label: 'بانتظار الإرسال',
+      color: 'text-gray-300 bg-white/5 border-white/10',
+      icon: '◷',
+    },
+  }
+
+  return statuses[status] || {
+    label: `حالة غير معروفة: ${status || 'غير محددة'}`,
+    color: 'text-gray-300 bg-white/5 border-white/10',
+    icon: '?',
+  }
+}
+
+function MessageStatus({ message }) {
+  const status = getMessageStatus(message.status)
+
+  return (
+    <div className="mt-3 space-y-2">
+      <div
+        className={`inline-flex items-center gap-2 rounded-lg border px-2 py-1 text-[11px] ${status.color}`}
+      >
+        <span>{status.icon}</span>
+        <span>{status.label}</span>
+      </div>
+
+      {['accepted', 'sent', 'pending'].includes(message.status) && (
+        <p className="text-[11px] text-yellow-200/80">
+          تنبيه: لا يوجد حتى الآن تأكيد من WhatsApp بأن الرسالة وصلت إلى جهاز المستلم.
+        </p>
+      )}
+
+      {message.status === 'failed' && (
+        <div className="rounded-lg border border-red-500/20 bg-red-950/40 p-3 text-xs space-y-1">
+          <p className="font-bold text-red-300">
+            تفاصيل فشل الرسالة
+          </p>
+
+          {message.error_code && (
+            <p>
+              رمز الخطأ: {message.error_code}
+            </p>
+          )}
+
+          {message.error_title && (
+            <p>
+              العنوان: {message.error_title}
+            </p>
+          )}
+
+          {message.error_message && (
+            <p>
+              الرسالة: {message.error_message}
+            </p>
+          )}
+
+          {message.error_details && (
+            <p>
+              التفاصيل: {message.error_details}
+            </p>
+          )}
+
+          {!message.error_code &&
+            !message.error_title &&
+            !message.error_message &&
+            !message.error_details && (
+              <p className="text-red-200/70">
+                لم يرسل WhatsApp تفاصيل إضافية عن سبب الفشل.
+              </p>
+            )}
+        </div>
+      )}
+
+      {message.status_at && (
+        <p className="text-[10px] text-white/40">
+          آخر تحديث للحالة:{' '}
+          {new Date(message.status_at).toLocaleString('ar-EG')}
+        </p>
+      )}
+
+      {message.wa_message_id && (
+        <p
+          className="text-[9px] text-white/30 break-all"
+          dir="ltr"
+        >
+          ID: {message.wa_message_id}
+        </p>
+      )}
+    </div>
+  )
+}
 
 export default function WhatsAppInboxPage() {
-  const [authenticated, setAuthenticated] = useState(null);
-  const [conversations, setConversations] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
+  const [authenticated, setAuthenticated] = useState(null)
+  const [conversations, setConversations] = useState([])
+  const [selected, setSelected] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const [sendNotice, setSendNotice] = useState('')
 
   const loadConversations = useCallback(async () => {
     const response = await fetch('/api/whatsapp/conversations', {
       cache: 'no-store',
-    });
+    })
 
     if (response.status === 401) {
-      setAuthenticated(false);
-      return;
+      setAuthenticated(false)
+      return
     }
 
-    const result = await response.json();
+    const result = await response.json()
 
     if (!response.ok) {
-      throw new Error(result.error || 'تعذر تحميل المحادثات');
+      throw new Error(result.error || 'تعذر تحميل المحادثات')
     }
 
-    setAuthenticated(true);
-    setConversations(result.conversations || []);
-  }, []);
+    setAuthenticated(true)
+    setConversations(result.conversations || [])
+  }, [])
 
   const loadMessages = useCallback(async (conversationId) => {
-    if (!conversationId) return;
+    if (!conversationId) return
 
     const response = await fetch(
       `/api/whatsapp/conversations?conversation_id=${encodeURIComponent(conversationId)}`,
       { cache: 'no-store' }
-    );
+    )
 
     if (response.status === 401) {
-      setAuthenticated(false);
-      return;
+      setAuthenticated(false)
+      return
     }
 
-    const result = await response.json();
+    const result = await response.json()
 
     if (!response.ok) {
-      throw new Error(result.error || 'تعذر تحميل الرسائل');
+      throw new Error(result.error || 'تعذر تحميل الرسائل')
     }
 
-    setMessages(result.messages || []);
-  }, []);
+    setMessages(result.messages || [])
+  }, [])
 
   useEffect(() => {
     fetch('/api/admin/session')
       .then((res) => res.json())
       .then(async (data) => {
-        setAuthenticated(data.authenticated);
+        setAuthenticated(data.authenticated)
 
         if (data.authenticated) {
-          await loadConversations();
+          await loadConversations()
         }
       })
       .catch(() => setAuthenticated(false))
-      .finally(() => setLoading(false));
-  }, [loadConversations]);
+      .finally(() => setLoading(false))
+  }, [loadConversations])
 
+  // تحديث قائمة المحادثات تلقائيًا
   useEffect(() => {
-    if (!authenticated) return;
+    if (!authenticated) return
 
     const timer = setInterval(() => {
-      loadConversations().catch(() => {});
-    }, 5000);
+      loadConversations().catch((err) => {
+        console.error('Refresh conversations error:', err)
+      })
+    }, 5000)
 
-    return () => clearInterval(timer);
-  }, [authenticated, loadConversations]);
+    return () => clearInterval(timer)
+  }, [authenticated, loadConversations])
 
+  // تحديث الرسائل وحالاتها تلقائيًا
   useEffect(() => {
-    if (!selected?.id) return;
+    if (!selected?.id) return
 
     loadMessages(selected.id).catch((err) => {
-      setError(err.message);
-    });
+      setError(err.message)
+    })
 
     const timer = setInterval(() => {
-      loadMessages(selected.id).catch(() => {});
-    }, 3000);
+      loadMessages(selected.id).catch((err) => {
+        console.error('Refresh messages error:', err)
+      })
+    }, 3000)
 
-    return () => clearInterval(timer);
-  }, [selected?.id, loadMessages]);
+    return () => clearInterval(timer)
+  }, [selected?.id, loadMessages])
 
   async function openConversation(conversation) {
-    setSelected(conversation);
-    setError('');
+    setSelected(conversation)
+    setMessages([])
+    setError('')
+    setSendNotice('')
 
-    await loadMessages(conversation.id);
-    await loadConversations();
+    try {
+      await loadMessages(conversation.id)
+
+      await fetch('/api/whatsapp/mark-read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId: conversation.id,
+        }),
+      })
+
+      await loadConversations()
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   async function sendMessage(event) {
-    event.preventDefault();
+    event.preventDefault()
 
-    if (!selected || !text.trim() || sending) return;
+    if (!selected || !text.trim() || sending) return
 
-    setSending(true);
-    setError('');
+    setSending(true)
+    setError('')
+    setSendNotice('')
 
     try {
       const response = await fetch('/api/whatsapp/send', {
@@ -116,25 +259,32 @@ export default function WhatsAppInboxPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          conversation_id: selected.id,
+          conversationId: selected.id,
           text: text.trim(),
         }),
-      });
+      })
 
-      const result = await response.json();
+      const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'فشل إرسال الرسالة');
+        throw new Error(
+          result.error || 'فشل إرسال الرسالة'
+        )
       }
 
-      setText('');
+      setText('')
 
-      await loadMessages(selected.id);
-      await loadConversations();
+      setSendNotice(
+        result.message ||
+        'قبل WhatsApp طلب الإرسال. ننتظر تأكيد التسليم.'
+      )
+
+      await loadMessages(selected.id)
+      await loadConversations()
     } catch (err) {
-      setError(err.message);
+      setError(err.message)
     } finally {
-      setSending(false);
+      setSending(false)
     }
   }
 
@@ -143,20 +293,26 @@ export default function WhatsAppInboxPage() {
       <main className="min-h-screen bg-[#10090D] text-white grid place-items-center">
         جاري التحقق من الدخول...
       </main>
-    );
+    )
   }
 
   if (!authenticated) {
     return (
       <main className="min-h-screen bg-[#10090D] text-white grid place-items-center p-6">
         <div className="text-center">
-          <p className="mb-4">يجب تسجيل الدخول أولًا.</p>
-          <a href="/admin" className="text-pink-400 underline">
+          <p className="mb-4">
+            يجب تسجيل الدخول أولًا.
+          </p>
+
+          <a
+            href="/admin"
+            className="text-pink-400 underline"
+          >
             الانتقال إلى لوحة الإدارة
           </a>
         </div>
       </main>
-    );
+    )
   }
 
   return (
@@ -167,9 +323,12 @@ export default function WhatsAppInboxPage() {
       <div className="max-w-7xl mx-auto">
         <header className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-2xl font-bold">WhatsApp العيادة</h1>
+            <h1 className="text-2xl font-bold">
+              WhatsApp العيادة
+            </h1>
+
             <p className="text-sm text-gray-400 mt-1">
-              إدارة محادثات المرضى
+              إدارة محادثات المرضى ومتابعة حالة الرسائل
             </p>
           </div>
 
@@ -183,14 +342,23 @@ export default function WhatsAppInboxPage() {
 
         {error && (
           <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
-            {error}
+            <strong>خطأ:</strong> {error}
+          </div>
+        )}
+
+        {sendNotice && (
+          <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+            {sendNotice}
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4">
           <aside className="rounded-2xl border border-white/10 bg-[#1B1118] overflow-hidden">
             <div className="p-4 border-b border-white/10">
-              <h2 className="font-bold">المحادثات</h2>
+              <h2 className="font-bold">
+                المحادثات
+              </h2>
+
               <p className="text-xs text-gray-400 mt-1">
                 {conversations.length} محادثة
               </p>
@@ -202,7 +370,9 @@ export default function WhatsAppInboxPage() {
                   key={conversation.id}
                   onClick={() => openConversation(conversation)}
                   className={`w-full text-right p-4 border-b border-white/5 hover:bg-white/5 ${
-                    selected?.id === conversation.id ? 'bg-white/10' : ''
+                    selected?.id === conversation.id
+                      ? 'bg-white/10'
+                      : ''
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -221,7 +391,10 @@ export default function WhatsAppInboxPage() {
                     {conversation.last_message || 'لا توجد رسائل'}
                   </p>
 
-                  <p className="text-xs text-gray-500 mt-1" dir="ltr">
+                  <p
+                    className="text-xs text-gray-500 mt-1"
+                    dir="ltr"
+                  >
                     {conversation.phone}
                   </p>
                 </button>
@@ -246,7 +419,11 @@ export default function WhatsAppInboxPage() {
                   <h2 className="font-bold">
                     {selected.patient_name || selected.phone}
                   </h2>
-                  <p className="text-sm text-gray-400" dir="ltr">
+
+                  <p
+                    className="text-sm text-gray-400"
+                    dir="ltr"
+                  >
                     {selected.phone}
                   </p>
                 </div>
@@ -262,7 +439,7 @@ export default function WhatsAppInboxPage() {
                       }`}
                     >
                       <div
-                        className={`max-w-[85%] rounded-2xl p-3 text-sm ${
+                        className={`max-w-[90%] rounded-2xl p-3 text-sm ${
                           message.direction === 'outgoing'
                             ? 'bg-[#245C43] text-white'
                             : 'bg-[#30232D] text-white'
@@ -272,17 +449,22 @@ export default function WhatsAppInboxPage() {
                           {message.content}
                         </p>
 
-                        <div className="flex items-center gap-2 mt-2 text-[10px] text-white/60">
-                          <span>
-                            {new Date(message.created_at).toLocaleString('ar-EG')}
-                          </span>
-                          {message.direction === 'outgoing' && (
-                            <span>{message.status}</span>
-                          )}
+                        <div className="mt-2 text-[10px] text-white/60">
+                          {new Date(message.created_at).toLocaleString('ar-EG')}
                         </div>
+
+                        {message.direction === 'outgoing' && (
+                          <MessageStatus message={message} />
+                        )}
                       </div>
                     </div>
                   ))}
+
+                  {messages.length === 0 && (
+                    <p className="text-center text-gray-500 text-sm py-8">
+                      لا توجد رسائل في هذه المحادثة
+                    </p>
+                  )}
                 </div>
 
                 <form
@@ -310,5 +492,5 @@ export default function WhatsAppInboxPage() {
         </div>
       </div>
     </main>
-  );
+  )
 }
