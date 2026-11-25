@@ -1,4 +1,5 @@
 'use client'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { normalizePhone } from '@/lib/booking'
@@ -17,28 +18,30 @@ export default function PreviousBooking({ locale }) {
   }
 
   return (
-    <div className="bg-[#2A0A14] rounded-xl p-4 border border-[#5A1D2E]">
-      <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
-        <svg className="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
+    <div className="clinic-card rounded-xl p-4 border clinic-border overflow-hidden">
+      <h3 className="font-bold text-sm mb-2 flex items-center gap-2 clinic-text">
+        <span className="clinic-accent-text">📄</span>
         {t(locale, 'previousBooking')}
       </h3>
-      <p className="text-xs text-gray-400 mb-3">{t(locale, 'previousBookingDesc')}</p>
+      <p className="text-xs clinic-text-muted mb-3 leading-relaxed">{t(locale, 'previousBookingDesc')}</p>
 
-      <form onSubmit={handleQuickLogin} className="flex gap-2" dir="ltr">
-        <span className="bg-[#3A0D1A] border border-[#5A1D2E] rounded-lg px-3 py-2.5 text-xs text-gray-400 flex items-center">EG +20</span>
-        <input
-          type="tel"
-          required
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="010XXXXXXXX"
-          className="flex-1 bg-[#3A0D1A] border border-[#5A1D2E] rounded-lg p-2.5 text-white text-sm focus:ring-1 focus:ring-pink-500 outline-none"
-        />
+      <form onSubmit={handleQuickLogin} className="space-y-2">
+        <div className="flex gap-1.5 min-w-0" dir="ltr">
+          <span className="clinic-surface border clinic-border rounded-lg px-2.5 py-2.5 text-xs clinic-text-muted flex items-center shrink-0">
+            +20
+          </span>
+          <input
+            type="tel"
+            required
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="010XXXXXXXX"
+            className="flex-1 min-w-0 w-full clinic-surface border clinic-border rounded-lg p-2.5 clinic-text text-sm outline-none"
+          />
+        </div>
         <button
           type="submit"
-          className="bg-pink-600 hover:bg-pink-700 text-white px-3.5 rounded-lg text-xs font-bold transition whitespace-nowrap"
+          className="w-full clinic-accent-bg text-white py-2.5 rounded-lg text-xs font-bold transition hover:opacity-90"
         >
           {t(locale, 'lookup')}
         </button>

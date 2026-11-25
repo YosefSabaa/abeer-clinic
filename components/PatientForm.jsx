@@ -1,99 +1,176 @@
 'use client'
-import { useState } from 'react'
+
+import { useClinic } from '@/lib/clinic-context'
 import { t } from '@/lib/i18n'
 
-export default function PatientForm({ locale, form, setForm }) {
-  const [showAdditional, setShowAdditional] = useState(false)
+export default function PatientForm({ locale: propLocale, form, setForm }) {
+  const { settings, locale: ctxLocale } = useClinic()
+  const locale = propLocale || ctxLocale
+  const questions = settings.booking_questions || []
+
+  const setCustomAnswer = (question, value) => {
+    const labelKey = question.label_ar || question.id
+    const nextCustom = { ...(form.customAnswers || {}), [labelKey]: value }
+
+    const patch = { customAnswers: nextCustom }
+    if (question.field_key === 'maritalStatus') {
+      patch.maritalStatus = value
+    } else if (question.field_key === 'age') {
+      patch.age = value
+    }
+    setForm((prev) => ({ ...prev, ...patch }))
+  }
+
+  const getCustomValue = (question) => {
+    const labelKey = question.label_ar || question.id
+    if (form.customAnswers && form.customAnswers[labelKey] !== undefined) {
+      return form.customAnswers[labelKey]
+    }
+    if (question.field_key === 'maritalStatus') return form.maritalStatus || ''
+    if (question.field_key === 'age') return form.age || ''
+    return ''
+  }
 
   return (
-    <div className="bg-[#2A0A14] rounded-2xl p-4 border border-[#5A1D2E] shadow-card animate-slide-up">
-      <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
-        <span className="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-bold">3</span>
-        <span>{t(locale, 'patientInfo')}</span>
-        <span className="text-pink-400 text-[11px]">أدخل البيانات</span>
+    <div className="clinic-card rounded-2xl p-4 border clinic-border shadow-card animate-slide-up overflow-hidden">
+      <div className="flex items-center gap-2 text-sm clinic-text-secondary mb-4">
+        <span className="w-6 h-6 rounded-full clinic-accent-bg text-white flex items-center justify-center text-xs font-bold shrink-0">
+          3
+        </span>
+        <span className="font-bold">{t(locale, 'patientInfo')}</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         <div>
-          <label className="block text-[11px] text-gray-500 mb-1.5">{t(locale, 'patientName')} *</label>
+          <label className="block text-[11px] clinic-text-muted mb-1.5">
+            {t(locale, 'patientName')} *
+          </label>
           <input
             type="text"
             required
-            className="w-full bg-[#3A0D1A] border border-[#5A1D2E] rounded-xl p-3 text-white text-sm focus:border-pink-500 focus:ring-1 focus:ring-pink-500/50 outline-none transition"
+            className="w-full min-w-0 clinic-surface border clinic-border rounded-xl p-3 clinic-text text-sm outline-none transition"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="الاسم الكامل"
+            placeholder={locale === 'ar' ? 'الاسم الكامل' : 'Full name'}
           />
         </div>
 
         <div>
-          <label className="block text-[11px] text-gray-500 mb-1.5">{t(locale, 'patientPhone')} *</label>
-          <div className="flex gap-2" dir="ltr">
-            <span className="bg-[#3A0D1A] border border-[#5A1D2E] rounded-xl px-3 text-sm text-gray-400 flex items-center">EG +20</span>
+          <label className="block text-[11px] clinic-text-muted mb-1.5">
+            {t(locale, 'patientPhone')} *
+          </label>
+          <div className="flex gap-2 min-w-0" dir="ltr">
+            <span className="clinic-surface border clinic-border rounded-xl px-3 text-xs sm:text-sm clinic-text-muted flex items-center shrink-0">
+              EG +20
+            </span>
             <input
               type="tel"
               required
-              className="flex-1 bg-[#3A0D1A] border border-[#5A1D2E] rounded-xl p-3 text-white text-sm focus:border-pink-500 focus:ring-1 focus:ring-pink-500/50 outline-none transition"
+              className="flex-1 min-w-0 w-full clinic-surface border clinic-border rounded-xl p-3 clinic-text text-sm outline-none transition"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="1XX XXXX XXXX"
+              placeholder="01XXXXXXXXX"
             />
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setShowAdditional(!showAdditional)}
-          className="flex items-center gap-1 text-xs text-pink-400 hover:text-pink-300 transition py-1"
-        >
-          <svg className={`w-3 h-3 transition-transform ${showAdditional ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-          {t(locale, 'additionalInfo')}
-        </button>
+        {questions.length > 0 && (
+          <div className="space-y-3.5 pt-3 border-t clinic-border">
+            {questions.map((q) => {
+              const label =
+                locale === 'ar' ? q.label_ar || q.label_en : q.label_en || q.label_ar
+              const hint = locale === 'ar' ? q.hint_ar : q.hint_en || q.hint_ar
+              const val = getCustomValue(q)
 
-        {showAdditional && (
-          <div className="space-y-3 pt-3 border-t border-[#5A1D2E] animate-slide-up">
-            <div>
-              <label className="block text-[11px] text-gray-500 mb-2">{t(locale, 'maritalStatus')}</label>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, maritalStatus: 'single' })}
-                  className={`flex-1 py-2.5 rounded-xl text-xs border transition active:scale-95 ${form.maritalStatus === 'single' ? 'bg-pink-600 border-pink-500 text-white' : 'bg-[#3A0D1A] border-[#5A1D2E] text-gray-300'}`}
-                >
-                  {t(locale, 'single')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, maritalStatus: 'married' })}
-                  className={`flex-1 py-2.5 rounded-xl text-xs border transition active:scale-95 ${form.maritalStatus === 'married' ? 'bg-pink-600 border-pink-500 text-white' : 'bg-[#3A0D1A] border-[#5A1D2E] text-gray-300'}`}
-                >
-                  {t(locale, 'married')}
-                </button>
-              </div>
-            </div>
+              return (
+                <div key={q.id} className="min-w-0">
+                  <label className="block text-[11px] clinic-text-muted mb-1.5">
+                    {label} {q.required ? <span className="clinic-accent-text">*</span> : ''}
+                  </label>
 
-            <div>
-              <label className="block text-[11px] text-gray-500 mb-1.5">{t(locale, 'age')}</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  className="flex-1 bg-[#3A0D1A] border border-[#5A1D2E] rounded-xl p-3 text-white text-sm focus:border-pink-500 outline-none transition"
-                  value={form.age}
-                  onChange={(e) => setForm({ ...form, age: e.target.value })}
-                  placeholder="السن"
-                />
-                <select
-                  className="bg-[#3A0D1A] border border-[#5A1D2E] rounded-xl p-3 text-white text-sm outline-none focus:border-pink-500"
-                  value={form.ageUnit}
-                  onChange={(e) => setForm({ ...form, ageUnit: e.target.value })}
-                >
-                  <option value="years">سنة</option>
-                  <option value="months">شهر</option>
-                </select>
-              </div>
-            </div>
+                  {q.type === 'select' && (
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                      {(q.options || []).map((opt) => {
+                        const optLabel =
+                          locale === 'ar'
+                            ? opt.label_ar || opt.label_en
+                            : opt.label_en || opt.label_ar
+                        const optValue = opt.value || opt.label_ar
+                        const isSelected = val === optValue || val === opt.label_ar
+                        return (
+                          <button
+                            key={opt.id || optValue}
+                            type="button"
+                            onClick={() => setCustomAnswer(q, optValue)}
+                            className={`sm:flex-1 py-2.5 px-3 rounded-xl text-xs font-bold border transition active:scale-95 truncate ${
+                              isSelected
+                                ? 'clinic-accent-bg border-transparent text-white shadow-glow'
+                                : 'clinic-surface clinic-border clinic-text-secondary clinic-accent-hover'
+                            }`}
+                          >
+                            {optLabel}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {q.type === 'yes_no' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { v: 'نعم', l: locale === 'ar' ? 'نعم' : 'Yes' },
+                        { v: 'لا', l: locale === 'ar' ? 'لا' : 'No' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.v}
+                          type="button"
+                          onClick={() => setCustomAnswer(q, opt.v)}
+                          className={`py-2.5 rounded-xl text-xs font-bold border transition ${
+                            val === opt.v
+                              ? 'clinic-accent-bg border-transparent text-white'
+                              : 'clinic-surface clinic-border clinic-text-secondary'
+                          }`}
+                        >
+                          {opt.l}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {q.type === 'number' && (
+                    <input
+                      type="number"
+                      min="0"
+                      max="120"
+                      value={val}
+                      onChange={(e) => setCustomAnswer(q, e.target.value)}
+                      placeholder={hint || label}
+                      className="w-full min-w-0 clinic-surface border clinic-border rounded-xl p-3 clinic-text text-sm outline-none transition"
+                    />
+                  )}
+
+                  {q.type === 'text' && (
+                    <input
+                      type="text"
+                      value={val}
+                      onChange={(e) => setCustomAnswer(q, e.target.value)}
+                      placeholder={hint || label}
+                      className="w-full min-w-0 clinic-surface border clinic-border rounded-xl p-3 clinic-text text-sm outline-none transition"
+                    />
+                  )}
+
+                  {q.type === 'textarea' && (
+                    <textarea
+                      rows={2}
+                      value={val}
+                      onChange={(e) => setCustomAnswer(q, e.target.value)}
+                      placeholder={hint || label}
+                      className="w-full min-w-0 clinic-surface border clinic-border rounded-xl p-3 clinic-text text-sm outline-none transition"
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Alexandria, IBM_Plex_Sans_Arabic } from 'next/font/google'
+import { ClinicSettingsProvider } from '@/lib/clinic-context'
 
 const alexandria = Alexandria({
   subsets: ['arabic'],
@@ -15,8 +16,8 @@ const ibmPlex = IBM_Plex_Sans_Arabic({
 })
 
 export const metadata: Metadata = {
-  title: 'دكتورة عبير الدالي — استشاري و رئيس قسم نساء وتوليد MSH | طبيبي',
-  description: 'احجز موعدك أونلاين وتابع ملفك الطبي مع دكتورة عبير الدالي',
+  title: 'عيادة دكتورة عبير الدالي — استشاري و رئيس قسم نساء وتوليد MSH',
+  description: 'احجز دورك أونلاين وتابع ملفك الطبي مع دكتورة عبير الدالي',
 }
 
 export const viewport: Viewport = {
@@ -29,8 +30,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className={`${alexandria.variable} ${ibmPlex.variable}`}>
-      <body className="font-ibm-plex antialiased bg-[#1A050A] text-gray-200">{children}</body>
+    <html
+      lang="ar"
+      dir="rtl"
+      data-theme="dark"
+      className={`${alexandria.variable} ${ibmPlex.variable}`}
+    >
+      <body className="font-ibm-plex antialiased clinic-main overflow-x-hidden">
+        <ClinicSettingsProvider>{children}</ClinicSettingsProvider>
+      </body>
     </html>
   )
 }

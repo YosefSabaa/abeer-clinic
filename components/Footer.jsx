@@ -1,24 +1,30 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { t } from '@/lib/i18n'
-import Link from 'next/link'
 
-export default function Footer({ locale }) {
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useClinic } from '@/lib/clinic-context'
+import { t } from '@/lib/i18n'
+
+export default function Footer({ locale: propLocale }) {
+  const { locale: ctxLocale, settings } = useClinic()
+  const locale = propLocale || ctxLocale
   const [year, setYear] = useState('')
 
   useEffect(() => {
-    setYear(new Date().getFullYear())
+    setYear(String(new Date().getFullYear()))
   }, [])
 
+  const doctorName =
+    locale === 'ar'
+      ? settings?.doctor_profile?.name_ar || 'دكتورة عبير الدالي'
+      : settings?.doctor_profile?.name_en || 'Dr. Abeer El-Dali'
+
   return (
-    <footer className="text-center py-6 mt-8 border-t border-[#5A1D2E]">
-      <p className="text-xs text-gray-500">
-        © {year} {t(locale, 'footer')} — طبيبي
+    <footer className="text-center py-6 mt-8 border-t clinic-border space-y-1 no-print">
+      <p className="text-xs clinic-text-muted">
+        © {year} {doctorName} — {t(locale, 'footer')}
       </p>
-      <Link
-        href="/privacy-policy"
-        className="text-pink-300 hover:underline text-xs"
-      >
+      <Link href="/privacy-policy" className="clinic-accent-text hover:underline text-xs">
         سياسة الخصوصية
       </Link>
     </footer>

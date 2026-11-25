@@ -1,64 +1,127 @@
 'use client'
-import { format, addWeeks, subWeeks, startOfWeek, addDays, isSameDay, isBefore, startOfDay, getDay } from 'date-fns'
-import { ar, enUS } from 'date-fns/locale'
 
-export default function WeeklyCalendar({ locale, selectedDate, onSelectDate, currentWeek, onChangeWeek }) {
+import {
+  format,
+  addWeeks,
+  subWeeks,
+  startOfWeek,
+  addDays,
+  isSameDay,
+  isBefore,
+  isAfter,
+  startOfDay,
+  getDay,
+} from 'date-fns'
+import { ar, enUS } from 'date-fns/locale'
+import { useClinic } from '@/lib/clinic-context'
+
+export default function WeeklyCalendar({
+  locale: propLocale,
+  selectedDate,
+  onSelectDate,
+  currentWeek,
+  onChangeWeek,
+}) {
+  const { settings, locale: ctxLocale } = useClinic()
+  const locale = propLocale || ctxLocale
+
   if (!currentWeek) return null
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 6 })
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const dateLocale = locale === 'ar' ? ar : enUS
 
-  const isDayAvailable = (date) => {
-    if (getDay(date) === 5) return false
-    if (isBefore(date, startOfDay(new Date()))) return false
-    return true
+  const workingHours = settings.working_hours || []
+  const holidays = settings.holidays || []
+  const maxAdvanceDays = Number(settings.booking_rules?.max_advance_days) || 30
+  const todayStart = startOfDay(new Date())
+  const maxDate = addDays(todayStart, maxAdvanceDays)
+
+  const getDayInfo = (date) => {
+    const dateStr = format(date, 'yyyy-MM-dd')
+    const holiday = holidays.find((h) => h.date === dateStr)
+    const rule = workingHours.find((w) => w.dayIndex === getDay(date))
+    const isPast = isBefore(date, todayStart)
+    const isTooFar = isAfter(date, maxDate)
+    const isClosed = !rule || rule.closed
+    const available = !isPast && !isTooFar && !isClosed && !holiday
+    return { available, rule, holiday }
   }
 
+  const selectedInfo = selectedDate ? getDayInfo(selectedDate) : null
+
   return (
-    <div className="bg-[#2A0A14] rounded-2xl p-4 border border-[#5A1D2E] shadow-card animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <span className="w-6 h-6 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-bold">1</span>
-          <span>اختر اليوم</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button onClick={() => onChangeWeek(subWeeks(currentWeek, 1))} className="w-8 h-8 rounded-lg bg-[#3A0D1A] hover:bg-[#5A1D2E] active:scale-90 flex items-center justify-center transition" aria-label="السابق">&gt;</button>
-          <span className="font-bold text-pink-300 text-xs min-w-[110px] text-center">
-            {format(weekStart, 'd MMM', { locale: dateLocale })} - {format(addDays(weekStart, 6), 'd MMM yyyy', { locale: dateLocale })}
+    <div className="clinic-card rounded-2xl p-3.5 sm:p-4 border clinic-border shadow-card animate-fade-in overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2 text-sm clinic-text-secondary">
+          <span className="w-6 h-6 rounded-full clinic-accent-bg text-white flex items-center justify-center text-xs font-bold shrink-0">
+            1
           </span>
-          <button onClick={() => onChangeWeek(addWeeks(currentWeek, 1))} className="w-8 h-8 rounded-lg bg-[#3A0D1A] hover:bg-[#5A1D2E] active:scale-90 flex items-center justify-center transition" aria-label="التالي">&lt;</button>
+          <span className="font-bold">{locale === 'ar' ? 'اختر اليوم' : 'Choose Day'}</span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => onChangeWeek(subWeeks(currentWeek, 1))}
+            className="w-8 h-8 rounded-lg clinic-surface border clinic-border clinic-accent-hover active:scale-90 flex items-center justify-center transition shrink-0"
+            aria-label="السابق"
+          >
+            &gt;
+          </button>
+          <span className="font-bold clinic-accent-text text-[11px] sm:text-xs min-w-[96px] text-center">
+            {format(weekStart, 'd MMM', { locale: dateLocale })} -{' '}
+            {format(addDays(weekStart, 6), 'd MMM', { locale: dateLocale })}
+          </span>
+          <button
+            type="button"
+            onClick={() => onChangeWeek(addWeeks(currentWeek, 1))}
+            className="w-8 h-8 rounded-lg clinic-surface border clinic-border clinic-accent-hover active:scale-90 flex items-center justify-center transition shrink-0"
+            aria-label="التالي"
+          >
+            &lt;
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {days.map((day) => {
-          const available = isDayAvailable(day)
+          const { available, holiday } = getDayInfo(day)
           const isSelected = selectedDate && isSameDay(day, selectedDate)
           return (
             <button
-              key={day.toString()}
+              key={day.toISOString()}
+              type="button"
               onClick={() => available && onSelectDate(day)}
               disabled={!available}
-              className={`flex flex-col items-center justify-center py-2.5 rounded-xl border text-center transition active:scale-95 ${
+              title={holiday ? `إجازة: ${holiday.reason || ''}` : undefined}
+              className={`min-w-0 flex flex-col items-center justify-center py-2 px-0.5 rounded-xl border text-center transition active:scale-95 ${
                 isSelected
-                  ? 'bg-pink-600 border-pink-500 text-white shadow-glow'
+                  ? 'clinic-accent-bg border-transparent text-white shadow-glow'
                   : available
-                    ? 'bg-[#3A0D1A] border-[#5A1D2E] text-gray-300 hover:bg-[#4A1D2A] hover:border-pink-500/30'
-                    : 'bg-[#1A050A] border-[#2A0A14] text-gray-700 cursor-not-allowed'
+                    ? 'clinic-surface clinic-border clinic-text clinic-accent-hover'
+                    : 'clinic-main clinic-border opacity-35 cursor-not-allowed'
               }`}
             >
-              <span className="text-[10px] mb-1 opacity-80">{format(day, 'EEE', { locale: dateLocale })}</span>
-              <span className="text-base font-bold">{format(day, 'd')}</span>
+              <span className="text-[9px] sm:text-[10px] mb-1 opacity-80 truncate w-full px-0.5">
+                {format(day, 'EEE', { locale: dateLocale })}
+              </span>
+              <span className="text-sm sm:text-base font-bold">{format(day, 'd')}</span>
             </button>
           )
         })}
       </div>
 
-      {selectedDate && (
-        <div className="mt-3 p-3 bg-[#1A050A] rounded-xl border border-[#5A1D2E] flex items-center gap-2 text-xs text-gray-400 animate-slide-up">
-          <svg className="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          دوام {format(selectedDate, 'EEEE', { locale: dateLocale })}: 7:00 م - 11:00 م
+      {selectedDate && selectedInfo?.rule && (
+        <div className="mt-3 p-3 clinic-main rounded-xl border clinic-border flex items-center gap-2 text-xs clinic-text-muted animate-slide-up">
+          <span className="clinic-accent-text">🕒</span>
+          <span>
+            {locale === 'ar' ? 'مواعيد العيادة يوم ' : 'Clinic hours on '}
+            {format(selectedDate, 'EEEE', { locale: dateLocale })}:{' '}
+            <strong className="clinic-text" dir="ltr">
+              {selectedInfo.rule.start} - {selectedInfo.rule.end}
+            </strong>
+          </span>
         </div>
       )}
     </div>
